@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   ShoppingCartIcon,
   PlusIcon,
@@ -25,7 +25,11 @@ import {
   UserIcon,
   CheckCircleIcon,
   ClockIcon,
-  ShieldIcon
+  ShieldIcon,
+  UploadIcon,
+  FileTextIcon,
+  AlertTriangleIcon,
+  BanknoteIcon
 } from 'lucide-react';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
@@ -192,13 +196,30 @@ const PlaceOrder = () => {
   const [quantity, setQuantity] = useState(MIN_ORDER_QUANTITY);
   const [showProductModal, setShowProductModal] = useState(false);
   const [showCart, setShowCart] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState('pay-now');
+  const [paymentMethod, setPaymentMethod] = useState('online');
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStock, setFilterStock] = useState('all');
   const [orderPlaced, setOrderPlaced] = useState(false);
   const [orderDetails, setOrderDetails] = useState(null);
   const [productDetails, setProductDetails] = useState(null);
   const [showPaymentOptions, setShowPaymentOptions] = useState(false);
+  const [showBankStatementModal, setShowBankStatementModal] = useState(false);
+  const [creditPending, setCreditPending] = useState(false);
+  const [bankStatement, setBankStatement] = useState({
+    bankName: '',
+    accountNumber: '',
+    accountHolder: '',
+    statementFile: null,
+    statementFileName: '',
+    uploaded: false
+  });
+  
+  // Online payment state
+  const [cardNumber, setCardNumber] = useState('');
+  const [cardHolder, setCardHolder] = useState('');
+  const [expiryDate, setExpiryDate] = useState('');
+  const [cvv, setCvv] = useState('');
+  const [cardType, setCardType] = useState('');
 
   // Simple calculations without offers
   const cartSubtotal = cart.reduce((total, item) => total + (item.quantity * item.pricePerKg), 0);
@@ -217,6 +238,55 @@ const PlaceOrder = () => {
     if (filterStock === 'out') return matchesSearch && product.stock === 'Out of Stock';
     return matchesSearch;
   });
+
+  // Detect card type from number
+  const detectCardType = (number) => {
+    const cleaned = number.replace(/\D/g, '');
+    
+    if (/^4/.test(cleaned)) {
+      return 'Visa';
+    } else if (/^5[1-5]/.test(cleaned)) {
+      return 'MasterCard';
+    } else if (/^3[47]/.test(cleaned)) {
+      return 'American Express';
+    } else if (/^6(?:011|5)/.test(cleaned)) {
+      return 'Discover';
+    }
+    return '';
+  };
+
+  // Format card number with spaces
+  const formatCardNumber = (value) => {
+    const cleaned = value.replace(/\D/g, '');
+    const groups = cleaned.match(/.{1,4}/g);
+    return groups ? groups.join(' ') : cleaned;
+  };
+
+  // Handle card number input
+  const handleCardNumberChange = (e) => {
+    const value = e.target.value;
+    const formatted = formatCardNumber(value);
+    setCardNumber(formatted);
+    
+    // Detect card type
+    const detectedType = detectCardType(value);
+    setCardType(detectedType);
+  };
+
+  // Handle expiry date input
+  const handleExpiryDateChange = (e) => {
+    let value = e.target.value.replace(/\D/g, '');
+    if (value.length >= 2) {
+      value = value.slice(0, 2) + '/' + value.slice(2, 4);
+    }
+    setExpiryDate(value);
+  };
+
+  // Handle CVV input
+  const handleCvvChange = (e) => {
+    const value = e.target.value.replace(/\D/g, '').slice(0, 4);
+    setCvv(value);
+  };
 
   const handleSelectProduct = (product) => {
     setSelectedProduct(product);
@@ -286,30 +356,150 @@ const PlaceOrder = () => {
     setShowPaymentOptions(true);
   };
 
+  // Validate card details
+  const validateCardDetails = () => {
+    if (!cardNumber || cardNumber.replace(/\D/g, '').length < 16) {
+      alert('Please enter a valid 16-digit card number');
+      return false;
+    }
+    
+    if (!cardHolder.trim()) {
+      alert('Please enter card holder name');
+      return false;
+    }
+    
+    if (!expiryDate || !/^\d{2}\/\d{2}$/.test(expiryDate)) {
+      alert('Please enter valid expiry date (MM/YY)');
+      return false;
+    }
+    
+    if (!cvv || cvv.length < 3) {
+      alert('Please enter valid CVV');
+      return false;
+    }
+    
+    return true;
+  };
+
+  // Handle bank statement file upload
+  const handleBankStatementUpload = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) { // 5MB limit
+        alert('File size should be less than 5MB');
+        return;
+      }
+      
+      if (!['application/pdf', 'image/jpeg', 'image/png'].includes(file.type)) {
+        alert('Please upload PDF, JPG, or PNG files only');
+        return;
+      }
+      
+      setBankStatement(prev => ({
+        ...prev,
+        statementFile: file,
+        statementFileName: file.name,
+        uploaded: true
+      }));
+    }
+  };
+
+  // Submit bank statement for credit approval
+  const handleSubmitBankStatement = () => {
+    if (!bankStatement.bankName || !bankStatement.accountNumber || !bankStatement.accountHolder) {
+      alert('Please fill all bank details');
+      return;
+    }
+    
+    if (!bankStatement.statementFile) {
+      alert('Please upload your bank statement');
+      return;
+    }
+    
+    // Simulate API call
+    setCreditPending(true);
+    
+    // Simulate processing delay
+    setTimeout(() => {
+      // In real app, this would be an API call to submit for approval
+      const orderId = `ORD-${Date.now().toString().slice(-8)}`;
+      const order = {
+        id: orderId,
+        date: new Date().toISOString(),
+        items: [...cart],
+        paymentMethod: 'pay-later',
+        paymentDetails: {
+          status: 'pending-approval',
+          bankName: bankStatement.bankName,
+          accountNumber: bankStatement.accountNumber.slice(-4),
+          submittedAt: new Date().toISOString(),
+          requiresApproval: true
+        },
+        totalAmount: grandTotal,
+        status: 'pending-approval',
+        riceMill: cart[0]?.riceMill || 'Multiple Mills',
+        estimatedDelivery: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString()
+      };
+
+      setOrderDetails(order);
+      setOrderPlaced(true);
+      setShowBankStatementModal(false);
+      setShowPaymentOptions(false);
+      setCreditPending(false);
+      
+      // Reset bank statement
+      setBankStatement({
+        bankName: '',
+        accountNumber: '',
+        accountHolder: '',
+        statementFile: null,
+        statementFileName: '',
+        uploaded: false
+      });
+    }, 2000);
+  };
+
   const handlePlaceOrder = () => {
     if (cart.length === 0) {
       alert('Your cart is empty');
       return;
     }
 
-    if (paymentMethod === 'pay-later' && dealerData.trustLevel !== 'Trusted') {
-      alert('Pay Later option is only available for trusted dealers');
+    if (paymentMethod === 'online' && !validateCardDetails()) {
       return;
     }
 
-    if (paymentMethod === 'pay-later' && grandTotal > dealerData.creditRemaining) {
-      alert('Order amount exceeds your available credit limit');
+    if (paymentMethod === 'pay-later') {
+      if (dealerData.trustLevel !== 'Trusted') {
+        alert('Pay Later option is only available for trusted dealers');
+        return;
+      }
+
+      if (grandTotal > dealerData.creditRemaining) {
+        alert('Order amount exceeds your available credit limit');
+        return;
+      }
+
+      // Show bank statement modal for credit approval
+      setShowBankStatementModal(true);
       return;
     }
 
+    // Online payment flow
     const orderId = `ORD-${Date.now().toString().slice(-8)}`;
     const order = {
       id: orderId,
       date: new Date().toISOString(),
       items: [...cart],
       paymentMethod: paymentMethod,
+      paymentDetails: paymentMethod === 'online' ? {
+        cardType: cardType,
+        lastFour: cardNumber.replace(/\D/g, '').slice(-4),
+        amount: grandTotal,
+        status: 'completed'
+      } : null,
       totalAmount: grandTotal,
-      status: 'pending-approval',
+      status: paymentMethod === 'online' ? 'processing' : 'pending',
       riceMill: cart[0]?.riceMill || 'Multiple Mills',
       estimatedDelivery: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString()
     };
@@ -317,13 +507,22 @@ const PlaceOrder = () => {
     setOrderDetails(order);
     setOrderPlaced(true);
     setShowPaymentOptions(false);
+    
+    // Reset payment form
+    if (paymentMethod === 'online') {
+      setCardNumber('');
+      setCardHolder('');
+      setExpiryDate('');
+      setCvv('');
+      setCardType('');
+    }
   };
 
   const formatCurrency = (amount) => {
     return `Rs. ${amount.toLocaleString('en-US')}`;
   };
 
-  // Product Card Design - ORIGINAL from your code
+  // Product Card Design
   const renderProductCard = (product) => (
     <Card key={product.id} className="group hover:shadow-xl transition-all duration-300 border border-gray-200 rounded-2xl overflow-hidden bg-white">
       {/* Product Image */}
@@ -403,7 +602,7 @@ const PlaceOrder = () => {
     </Card>
   );
 
-  // Cart Summary - ORIGINAL from your code
+  // Cart Summary
   const renderCartSummary = () => (
     <div className={`lg:sticky lg:top-6 transition-all duration-300 ${showCart ? 'block' : 'hidden lg:block'}`}>
       <Card className="border border-gray-200 rounded-2xl overflow-hidden bg-white">
@@ -533,7 +732,174 @@ const PlaceOrder = () => {
     </div>
   );
 
-  // Payment Options Modal - ORIGINAL from your code
+  // Bank Statement Modal for Credit Approval
+  const BankStatementModal = () => (
+    <Modal
+      isOpen={showBankStatementModal}
+      onClose={() => !creditPending && setShowBankStatementModal(false)}
+      title="Submit Bank Statement for Credit Approval"
+      size="lg"
+    >
+      <div className="space-y-6">
+        {/* Info Notice */}
+        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+          <div className="flex items-start gap-3">
+            <AlertCircleIcon className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+            <div>
+              <h4 className="font-bold text-blue-800 mb-1">Credit Payment Requires Approval</h4>
+              <p className="text-sm text-blue-700">
+                Your order will be placed in pending status. The rice mill owner will review your 
+                bank statement and credit history before approving the payment. This process may 
+                take 24-48 hours.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Bank Details Form */}
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Bank Name
+              </label>
+              <input
+                type="text"
+                value={bankStatement.bankName}
+                onChange={(e) => setBankStatement(prev => ({ ...prev, bankName: e.target.value }))}
+                placeholder="e.g., Commercial Bank"
+                disabled={creditPending}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent disabled:bg-gray-100"
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Account Number
+              </label>
+              <input
+                type="text"
+                value={bankStatement.accountNumber}
+                onChange={(e) => setBankStatement(prev => ({ ...prev, accountNumber: e.target.value }))}
+                placeholder="1234567890"
+                disabled={creditPending}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent disabled:bg-gray-100"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Account Holder Name
+            </label>
+            <input
+              type="text"
+              value={bankStatement.accountHolder}
+              onChange={(e) => setBankStatement(prev => ({ ...prev, accountHolder: e.target.value }))}
+              placeholder="As per bank records"
+              disabled={creditPending}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent disabled:bg-gray-100"
+            />
+          </div>
+
+          {/* Bank Statement Upload */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Upload Bank Statement (Last 3 months)
+            </label>
+            <div className={`border-2 border-dashed rounded-xl p-6 text-center transition-colors ${
+              bankStatement.uploaded 
+                ? 'border-green-300 bg-green-50' 
+                : 'border-gray-300 hover:border-gray-400'
+            }`}>
+              <input
+                type="file"
+                id="bankStatement"
+                accept=".pdf,.jpg,.jpeg,.png"
+                onChange={handleBankStatementUpload}
+                disabled={creditPending}
+                className="hidden"
+              />
+              
+              {bankStatement.uploaded ? (
+                <div className="space-y-2">
+                  <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto">
+                    <CheckIcon className="w-6 h-6 text-green-600" />
+                  </div>
+                  <p className="font-medium text-green-700">File Uploaded Successfully</p>
+                  <p className="text-sm text-gray-600">{bankStatement.statementFileName}</p>
+                  <button
+                    onClick={() => setBankStatement(prev => ({ ...prev, uploaded: false, statementFile: null, statementFileName: '' }))}
+                    disabled={creditPending}
+                    className="text-sm text-red-600 hover:text-red-800"
+                  >
+                    Remove file
+                  </button>
+                </div>
+              ) : (
+                <label htmlFor="bankStatement" className="cursor-pointer">
+                  <div className="space-y-2">
+                    <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto">
+                      <UploadIcon className="w-6 h-6 text-gray-400" />
+                    </div>
+                    <p className="font-medium text-gray-700">Click to upload bank statement</p>
+                    <p className="text-sm text-gray-500">PDF, JPG, or PNG up to 5MB</p>
+                  </div>
+                </label>
+              )}
+            </div>
+          </div>
+
+          {/* Terms and Conditions */}
+          <div className="bg-gray-50 rounded-lg p-4">
+            <div className="flex items-start gap-2">
+              <input
+                type="checkbox"
+                id="terms"
+                className="mt-1"
+                disabled={creditPending}
+              />
+              <label htmlFor="terms" className="text-sm text-gray-600">
+                I agree that my order will be placed on hold until the rice mill owner 
+                reviews and approves my bank statement. I understand that this may delay 
+                my order processing by 24-48 hours.
+              </label>
+            </div>
+          </div>
+
+          {/* Submit Button */}
+          <div className="pt-4">
+            <Button
+              fullWidth
+              onClick={handleSubmitBankStatement}
+              disabled={creditPending || !bankStatement.uploaded || !bankStatement.bankName || !bankStatement.accountNumber || !bankStatement.accountHolder}
+              className="rounded-lg py-3 bg-blue-600 hover:bg-blue-700 border-0 disabled:bg-blue-300"
+            >
+              {creditPending ? (
+                <span className="flex items-center justify-center">
+                  <ClockIcon className="w-4 h-4 mr-2 animate-spin" />
+                  Submitting for Approval...
+                </span>
+              ) : (
+                `Submit for Approval - ${formatCurrency(grandTotal)}`
+              )}
+            </Button>
+            
+            {!creditPending && (
+              <button
+                onClick={() => setShowBankStatementModal(false)}
+                className="w-full mt-2 text-center text-sm text-gray-600 hover:text-gray-800"
+              >
+                Cancel and choose different payment
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    </Modal>
+  );
+
+  // Payment Options Modal - UPDATED WITH ONLINE PAYMENT
   const PaymentOptionsModal = () => (
     <Modal
       isOpen={showPaymentOptions}
@@ -542,35 +908,35 @@ const PlaceOrder = () => {
       size="md"
     >
       <div className="space-y-4">
-        {/* Cash on Delivery Option */}
+        {/* Online Payment Option */}
         <div 
           className={`border-2 rounded-xl p-4 cursor-pointer transition-all ${
-            paymentMethod === 'pay-now' 
+            paymentMethod === 'online' 
               ? 'border-green-500 bg-green-50' 
               : 'border-gray-200 hover:border-gray-300'
           }`}
-          onClick={() => setPaymentMethod('pay-now')}
+          onClick={() => setPaymentMethod('online')}
         >
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className={`p-2 rounded-lg ${
-                paymentMethod === 'pay-now' 
+                paymentMethod === 'online' 
                   ? 'bg-green-100 text-green-600' 
                   : 'bg-gray-100 text-gray-500'
               }`}>
-                <WalletIcon className="w-5 h-5" />
+                <CreditCardIcon className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="font-bold text-gray-900">Cash on Delivery</h3>
-                <p className="text-sm text-gray-600">Pay after receiving the delivery</p>
+                <h3 className="font-bold text-gray-900">Online Payment</h3>
+                <p className="text-sm text-gray-600">Pay securely with your card</p>
               </div>
             </div>
             <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-              paymentMethod === 'pay-now' 
+              paymentMethod === 'online' 
                 ? 'border-green-500 bg-green-500' 
                 : 'border-gray-300'
             }`}>
-              {paymentMethod === 'pay-now' && (
+              {paymentMethod === 'online' && (
                 <div className="w-2 h-2 rounded-full bg-white" />
               )}
             </div>
@@ -593,7 +959,7 @@ const PlaceOrder = () => {
                   ? 'bg-blue-100 text-blue-600' 
                   : 'bg-gray-100 text-gray-500'
               }`}>
-                <CreditCardIcon className="w-5 h-5" />
+                <WalletIcon className="w-5 h-5" />
               </div>
               <div>
                 <div className="flex items-center gap-2 mb-1">
@@ -608,7 +974,7 @@ const PlaceOrder = () => {
                     </span>
                   )}
                 </div>
-                <p className="text-sm text-gray-600">Use your credit limit</p>
+                <p className="text-sm text-gray-600">Submit bank statement for approval</p>
               </div>
             </div>
             <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
@@ -638,6 +1004,102 @@ const PlaceOrder = () => {
           )}
         </div>
 
+        {/* Card Details Form (shown when Online Payment is selected) */}
+        {paymentMethod === 'online' && (
+          <div className="border rounded-xl p-4 mt-4 bg-white">
+            <h4 className="font-bold text-gray-900 mb-4">Enter Card Details</h4>
+            
+            <div className="space-y-3">
+              {/* Card Number with Type Detection */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Card Number
+                </label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={cardNumber}
+                    onChange={handleCardNumberChange}
+                    placeholder="1234 5678 9012 3456"
+                    maxLength={19}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  />
+                  {cardType && (
+                    <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                      <div className="flex items-center gap-1 px-2 py-1 bg-gray-100 rounded text-xs font-medium">
+                        {cardType === 'Visa' && (
+                          <span className="text-blue-600">VISA</span>
+                        )}
+                        {cardType === 'MasterCard' && (
+                          <span className="text-red-600">MasterCard</span>
+                        )}
+                        {cardType === 'American Express' && (
+                          <span className="text-blue-500">Amex</span>
+                        )}
+                        {cardType === 'Discover' && (
+                          <span className="text-orange-600">Discover</span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Card Holder Name */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Card Holder Name
+                </label>
+                <input
+                  type="text"
+                  value={cardHolder}
+                  onChange={(e) => setCardHolder(e.target.value)}
+                  placeholder="John Doe"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                />
+              </div>
+
+              {/* Expiry and CVV */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Expiry Date
+                  </label>
+                  <input
+                    type="text"
+                    value={expiryDate}
+                    onChange={handleExpiryDateChange}
+                    placeholder="MM/YY"
+                    maxLength={5}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    CVV
+                  </label>
+                  <input
+                    type="text"
+                    value={cvv}
+                    onChange={handleCvvChange}
+                    placeholder="123"
+                    maxLength={4}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  />
+                </div>
+              </div>
+
+              {/* Security Notice */}
+              <div className="flex items-start gap-2 p-2 bg-gray-50 rounded-lg">
+                <ShieldIcon className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
+                <p className="text-xs text-gray-600">
+                  Your payment is secure and encrypted. We never store your card details.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Place Order Button */}
         <div className="pt-4 border-t">
           <Button
@@ -646,14 +1108,14 @@ const PlaceOrder = () => {
             disabled={cart.length === 0 || (paymentMethod === 'pay-later' && dealerData.trustLevel !== 'Trusted')}
             className="rounded-lg py-3 bg-green-600 hover:bg-green-700 border-0"
           >
-            Place Order - {formatCurrency(grandTotal)}
+            {paymentMethod === 'online' ? 'Pay Now' : 'Submit for Approval'} - {formatCurrency(grandTotal)}
           </Button>
         </div>
       </div>
     </Modal>
   );
 
-  // Product Details Modal - UPDATED: Mobile-friendly version
+  // Product Details Modal
   const ProductDetailsModal = () => (
     <Modal
       isOpen={!!productDetails}
@@ -819,7 +1281,7 @@ const PlaceOrder = () => {
             </div>
           </div>
 
-          {/* Desktop Layout - ORIGINAL from your code */}
+          {/* Desktop Layout */}
           <div className="hidden lg:flex lg:gap-6">
             <div className="flex-1">
               <div className="relative h-64 rounded-xl overflow-hidden mb-4">
@@ -991,12 +1453,24 @@ const PlaceOrder = () => {
           // Order Confirmation
           <Card className="max-w-2xl mx-auto border rounded-2xl overflow-hidden">
             <div className="p-6 text-center">
-              <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <CheckCircleIcon className="w-10 h-10 text-green-600" />
+              <div className={`w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4 ${
+                orderDetails.paymentMethod === 'pay-later' ? 'bg-blue-100' : 'bg-green-100'
+              }`}>
+                {orderDetails.paymentMethod === 'pay-later' ? (
+                  <ClockIcon className="w-10 h-10 text-blue-600" />
+                ) : (
+                  <CheckCircleIcon className="w-10 h-10 text-green-600" />
+                )}
               </div>
               
-              <h2 className="text-2xl font-bold text-gray-900 mb-3">Order Confirmed!</h2>
-              <p className="text-gray-600 mb-6">Your order has been placed successfully</p>
+              <h2 className="text-2xl font-bold text-gray-900 mb-3">
+                {orderDetails.paymentMethod === 'pay-later' ? 'Submitted for Approval!' : 'Order Confirmed!'}
+              </h2>
+              <p className="text-gray-600 mb-6">
+                {orderDetails.paymentMethod === 'pay-later' 
+                  ? 'Your order has been submitted for credit approval'
+                  : 'Your order has been placed successfully'}
+              </p>
               
               <div className="bg-gray-50 rounded-xl p-4 mb-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
@@ -1006,8 +1480,12 @@ const PlaceOrder = () => {
                   </div>
                   <div>
                     <p className="text-sm text-gray-500 mb-1">Payment Method</p>
-                    <p className="font-bold text-green-600 capitalize">
-                      {orderDetails.paymentMethod === 'pay-now' ? 'Cash on Delivery' : 'Credit'}
+                    <p className={`font-bold ${
+                      orderDetails.paymentMethod === 'online' ? 'text-green-600' : 'text-blue-600'
+                    } capitalize`}>
+                      {orderDetails.paymentMethod === 'online' 
+                        ? `Online (${orderDetails.paymentDetails.cardType})` 
+                        : 'Credit - Pending Approval'}
                     </p>
                   </div>
                   <div>
@@ -1016,12 +1494,44 @@ const PlaceOrder = () => {
                   </div>
                   <div>
                     <p className="text-sm text-gray-500 mb-1">Status</p>
-                    <div className="inline-flex items-center gap-1 px-2 py-1 bg-amber-100 text-amber-800 rounded-full text-sm">
-                      <ClockIcon className="w-3 h-3" />
-                      <span className="font-bold">Pending</span>
+                    <div className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-sm ${
+                      orderDetails.paymentMethod === 'pay-later' 
+                        ? 'bg-blue-100 text-blue-800' 
+                        : orderDetails.status === 'processing'
+                        ? 'bg-amber-100 text-amber-800'
+                        : 'bg-green-100 text-green-800'
+                    }`}>
+                      {orderDetails.paymentMethod === 'pay-later' ? (
+                        <>
+                          <ClockIcon className="w-3 h-3" />
+                          <span className="font-bold">Pending Approval</span>
+                        </>
+                      ) : orderDetails.status === 'processing' ? (
+                        <>
+                          <ClockIcon className="w-3 h-3" />
+                          <span className="font-bold">Processing</span>
+                        </>
+                      ) : (
+                        <>
+                          <CheckIcon className="w-3 h-3" />
+                          <span className="font-bold">Confirmed</span>
+                        </>
+                      )}
                     </div>
                   </div>
                 </div>
+                
+                {orderDetails.paymentMethod === 'pay-later' && (
+                  <div className="mt-4 pt-4 border-t">
+                    <div className="flex items-start gap-2">
+                      <AlertCircleIcon className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                      <p className="text-sm text-blue-700">
+                        Your order is pending rice mill owner approval. Please wait 24-48 hours for 
+                        approval confirmation. You will be notified once approved.
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
               
               <div className="flex flex-col sm:flex-row gap-3 justify-center">
@@ -1038,7 +1548,7 @@ const PlaceOrder = () => {
                 <Button
                   className="rounded-lg px-6 bg-green-600 hover:bg-green-700"
                 >
-                  Track Order
+                  {orderDetails.paymentMethod === 'pay-later' ? 'Check Approval Status' : 'Track Order'}
                 </Button>
               </div>
             </div>
@@ -1059,7 +1569,7 @@ const PlaceOrder = () => {
                           placeholder="Search products..."
                           value={searchQuery}
                           onChange={(e) => setSearchQuery(e.target.value)}
-                          className="w-full pl-10 pr-3 py-2.5 bg-gray-50 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                          className="w-full pl-10 pr-3 py-2.5 bg-gray-50 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
                         />
                       </div>
                     </div>
@@ -1069,7 +1579,7 @@ const PlaceOrder = () => {
                       <select
                         value={filterStock}
                         onChange={(e) => setFilterStock(e.target.value)}
-                        className="w-full pl-10 pr-3 py-2.5 bg-gray-50 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                        className="w-full pl-10 pr-3 py-2.5 bg-gray-50 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
                       >
                         <option value="all">All Stock</option>
                         <option value="available">Available</option>
@@ -1194,6 +1704,9 @@ const PlaceOrder = () => {
 
       {/* Payment Options Modal */}
       <PaymentOptionsModal />
+
+      {/* Bank Statement Modal */}
+      <BankStatementModal />
 
       {/* Product Details Modal */}
       <ProductDetailsModal />
