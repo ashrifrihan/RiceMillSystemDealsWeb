@@ -1,3 +1,4 @@
+// C:\Users\RIHAN\Desktop\dealers - web\src\pages\HomePage.jsx
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { 
@@ -32,12 +33,24 @@ import {
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import { useAuth } from '../contexts/AuthContext';
+import { homeDataService } from '../services/homeDataService'; // Import the service
 
 const HomePage = () => {
   const { user } = useAuth();
   const [currentSlide, setCurrentSlide] = useState(0);
   const [currentTrustMessage, setCurrentTrustMessage] = useState(0);
   const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' ? window.innerWidth < 768 : false);
+  
+  // 🔥 NEW: Firebase Data States
+  const [topSellingProducts, setTopSellingProducts] = useState([]);
+  const [riceCategories, setRiceCategories] = useState([]);
+  const [dealerStats, setDealerStats] = useState(null);
+  const [riceMillsCount, setRiceMillsCount] = useState(50);
+  const [loading, setLoading] = useState({
+    products: true,
+    categories: true,
+    stats: true
+  });
   
   // Check screen size for responsive adjustments
   useEffect(() => {
@@ -49,9 +62,43 @@ const HomePage = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
   
+  // 🔥 FETCH FIREBASE DATA
+  useEffect(() => {
+    const fetchFirebaseData = async () => {
+      try {
+        // Fetch top selling products
+        const products = await homeDataService.getTopSellingProducts();
+        setTopSellingProducts(products);
+        setLoading(prev => ({ ...prev, products: false }));
+        
+        // Fetch categories
+        const categories = await homeDataService.getProductCategories();
+        setRiceCategories(categories);
+        setLoading(prev => ({ ...prev, categories: false }));
+        
+        // Fetch dealer stats if user is logged in
+        if (user?.uid) {
+          const stats = await homeDataService.getDealerStats(user.uid);
+          setDealerStats(stats);
+        }
+        setLoading(prev => ({ ...prev, stats: false }));
+        
+        // Fetch mills count
+        const millsCount = await homeDataService.getRiceMillsCount();
+        setRiceMillsCount(millsCount);
+        
+      } catch (error) {
+        console.error("Error fetching homepage data:", error);
+        setLoading({ products: false, categories: false, stats: false });
+      }
+    };
+    
+    fetchFirebaseData();
+  }, [user?.uid]);
+  
   // Trust header data - rotates every 5 seconds
   const trustMessages = [
-    { text: "Fast Delivery Available | Direct Mill Prices", icon: <TruckIcon className="h-4 w-4" /> },
+    { text: `Fast Delivery Available | ${riceMillsCount}+ Partner Mills`, icon: <TruckIcon className="h-4 w-4" /> },
     { text: "Trusted by 500+ Rice Dealers Nationwide", icon: <UsersIcon className="h-4 w-4" /> },
     { text: "100% Quality Guarantee | Secure Payments", icon: <ShieldIcon className="h-4 w-4" /> },
     { text: "Best Price Match | Lowest in Market", icon: <TagIcon className="h-4 w-4" /> },
@@ -76,15 +123,6 @@ const HomePage = () => {
       buttonText: "View Stock",
       badge: "New Arrival",
       image: "https://images.unsplash.com/photo-1518977676601-b53f82aba655?ixlib=rb-4.0.3&auto=format&fit=crop&w=1600&q=80",
-      gradient: "from-green-700/90 via-green-800/70 to-green-900/90"
-    },
-    {
-      title: "Organic Rice Collection",
-      subtitle: "Certified Organic | Chemical Free | Pure Quality",
-      offer: "Special Rates for Regular Buyers",
-      buttonText: "Explore Organic",
-      badge: "Premium Quality",
-      image: "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?ixlib=rb-4.0.3&auto=format&fit=crop&w=1600&q=80",
       gradient: "from-green-700/90 via-green-800/70 to-green-900/90"
     }
   ];
@@ -117,282 +155,28 @@ const HomePage = () => {
     }
   ];
   
-  // Rice Categories with IMAGES instead of icons
-  const riceCategories = [
+  // If no categories from Firebase, show default
+  const displayCategories = riceCategories.length > 0 ? riceCategories : [
     {
-      name: "Nadu Rice",
-      products: 42,
-      priceRange: "LKR 95-150/KG",
+      name: "Loading...",
+      products: 0,
+      priceRange: "LKR 0-0/KG",
       image: "https://images.unsplash.com/photo-1586201375761-83865001e31c?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300&q=80",
-      bgColor: "bg-gradient-to-br from-green-50 to-green-100",
-      borderColor: "border-green-200",
-      textColor: "text-green-700"
-    },
-    {
-      name: "Samba Rice",
-      products: 28,
-      priceRange: "LKR 105-180/KG",
-      image: "https://images.unsplash.com/photo-1563245372-f21724e3856d?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300&q=80",
-      bgColor: "bg-gradient-to-br from-emerald-50 to-emerald-100",
-      borderColor: "border-emerald-200",
-      textColor: "text-emerald-700"
-    },
-    {
-      name: "Raw Rice",
-      products: 35,
-      priceRange: "LKR 85-130/KG",
-      image: "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300&q=80",
-      bgColor: "bg-gradient-to-br from-lime-50 to-lime-100",
-      borderColor: "border-lime-200",
-      textColor: "text-lime-700"
-    },
-    {
-      name: "Broken Rice",
-      products: 18,
-      priceRange: "LKR 65-95/KG",
-      image: "https://images.unsplash.com/photo-1518977676601-b53f82aba655?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300&q=80",
-      bgColor: "bg-gradient-to-br from-amber-50 to-amber-100",
-      borderColor: "border-amber-200",
-      textColor: "text-amber-700"
-    },
-    {
-      name: "Red Rice",
-      products: 15,
-      priceRange: "LKR 125-200/KG",
-      image: "https://images.unsplash.com/photo-1586201375761-83865001e31c?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300&q=80",
-      bgColor: "bg-gradient-to-br from-teal-50 to-teal-100",
-      borderColor: "border-teal-200",
-      textColor: "text-teal-700"
-    },
-    {
-      name: "Rice Flour",
-      products: 12,
-      priceRange: "LKR 110-160/KG",
-      image: "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300&q=80",
-      bgColor: "bg-gradient-to-br from-cyan-50 to-cyan-100",
-      borderColor: "border-cyan-200",
-      textColor: "text-cyan-700"
-    },
-    {
-      name: "Basmati Rice",
-      products: 25,
-      priceRange: "LKR 150-250/KG",
-      image: "https://images.unsplash.com/photo-1563245372-f21724e3856d?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300&q=80",
-      bgColor: "bg-gradient-to-br from-blue-50 to-blue-100",
-      borderColor: "border-blue-200",
-      textColor: "text-blue-700"
-    },
-    {
-      name: "Organic Rice",
-      products: 20,
-      priceRange: "LKR 180-300/KG",
-      image: "https://images.unsplash.com/photo-1518977676601-b53f82aba655?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300&q=80",
-      bgColor: "bg-gradient-to-br from-emerald-50 to-emerald-100",
-      borderColor: "border-emerald-200",
-      textColor: "text-emerald-700"
+      bgColor: "bg-gradient-to-br from-gray-100 to-gray-200",
+      borderColor: "border-gray-300",
+      textColor: "text-gray-500"
     }
   ];
   
-  // Category-wise products - Organized by category
-  const categoryProducts = {
-    "Nadu Rice": [
-      {
-        id: 1,
-        name: "Premium Nadu Rice - Grade A",
-        millName: "Rajesh Kumar Rice Mills",
-        pricePerKg: 115,
-        minOrder: 50,
-        stock: 5000,
-        rating: 4.8,
-        reviews: 128,
-        image: "https://images.unsplash.com/photo-1563245372-f21724e3856d?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300&q=80",
-        location: "Coimbatore, Tamil Nadu",
-        deliveryTime: "24-48 hours",
-        quality: "Grade A",
-        millingType: "Polished",
-        moisture: "12%",
-        age: "2024 Harvest",
-        tags: ["Best Seller", "Fast Delivery"],
-        category: "Nadu Rice"
-      },
-      {
-        id: 2,
-        name: "Fine Nadu Rice - Standard",
-        millName: "Sri Lakshmi Mills",
-        pricePerKg: 98,
-        minOrder: 100,
-        stock: 8000,
-        rating: 4.5,
-        reviews: 89,
-        image: "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300&q=80",
-        location: "Madurai, Tamil Nadu",
-        deliveryTime: "48-72 hours",
-        quality: "Grade B",
-        millingType: "Semi-polished",
-        moisture: "13%",
-        age: "2024 Harvest",
-        tags: ["Bulk Discount", "Ready Stock"],
-        category: "Nadu Rice"
-      }
-    ],
-    "Samba Rice": [
-      {
-        id: 3,
-        name: "Export Quality Samba Rice",
-        millName: "Lakshmi Rice Traders",
-        pricePerKg: 125,
-        minOrder: 25,
-        stock: 2500,
-        rating: 4.7,
-        reviews: 56,
-        image: "https://images.unsplash.com/photo-1518977676601-b53f82aba655?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300&q=80",
-        location: "Chennai, Tamil Nadu",
-        deliveryTime: "48-72 hours",
-        quality: "Export Grade",
-        millingType: "Polished",
-        moisture: "11%",
-        age: "2024 Harvest",
-        tags: ["Export Quality", "Limited Stock"],
-        category: "Samba Rice"
-      }
-    ],
-    "Organic Rice": [
-      {
-        id: 4,
-        name: "Organic Red Rice",
-        millName: "Green Fields Organic Farms",
-        pricePerKg: 145,
-        minOrder: 30,
-        stock: 1800,
-        rating: 4.9,
-        reviews: 45,
-        image: "https://images.unsplash.com/photo-1586201375761-83865001e31c?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300&q=80",
-        location: "Kerala",
-        deliveryTime: "72 hours",
-        quality: "Organic Certified",
-        millingType: "Unpolished",
-        moisture: "13%",
-        age: "2024 Season",
-        tags: ["Organic", "Health Special"],
-        category: "Organic Rice"
-      }
-    ],
-    "Basmati Rice": [
-      {
-        id: 5,
-        name: "Premium Basmati Rice",
-        millName: "Ceylon Rice Mills",
-        pricePerKg: 195,
-        minOrder: 20,
-        stock: 1200,
-        rating: 4.8,
-        reviews: 67,
-        image: "https://images.unsplash.com/photo-1563245372-f21724e3856d?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300&q=80",
-        location: "Sri Lanka",
-        deliveryTime: "5-7 days",
-        quality: "Premium Grade",
-        millingType: "Aged",
-        moisture: "10%",
-        age: "Aged 1 Year",
-        tags: ["Premium", "Aromatic"],
-        category: "Basmati Rice"
-      }
-    ]
-  };
-  
-  // Top selling products across all categories
-  const topSellingProducts = [
-    {
-      id: 1,
-      name: "Premium Nadu Rice - Grade A",
-      millName: "Rajesh Kumar Rice Mills",
-      pricePerKg: 115,
-      minOrder: 50,
-      stock: 5000,
-      rating: 4.8,
-      reviews: 128,
-      image: "https://images.unsplash.com/photo-1563245372-f21724e3856d?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300&q=80",
-      location: "Coimbatore, Tamil Nadu",
-      deliveryTime: "24-48 hours",
-      quality: "Grade A",
-      millingType: "Polished",
-      moisture: "12%",
-      age: "2024 Harvest",
-      tags: ["Best Seller", "Fast Delivery"],
-      category: "Nadu Rice",
-      soldThisMonth: 12500
-    },
-    {
-      id: 3,
-      name: "Export Quality Samba Rice",
-      millName: "Lakshmi Rice Traders",
-      pricePerKg: 125,
-      minOrder: 25,
-      stock: 2500,
-      rating: 4.7,
-      reviews: 56,
-      image: "https://images.unsplash.com/photo-1518977676601-b53f82aba655?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300&q=80",
-      location: "Chennai, Tamil Nadu",
-      deliveryTime: "48-72 hours",
-      quality: "Export Grade",
-      millingType: "Polished",
-      moisture: "11%",
-      age: "2024 Harvest",
-      tags: ["Export Quality", "Limited Stock"],
-      category: "Samba Rice",
-      soldThisMonth: 8900
-    },
-    {
-      id: 4,
-      name: "Organic Red Rice",
-      millName: "Green Fields Organic Farms",
-      pricePerKg: 145,
-      minOrder: 30,
-      stock: 1800,
-      rating: 4.9,
-      reviews: 45,
-      image: "https://images.unsplash.com/photo-1586201375761-83865001e31c?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300&q=80",
-      location: "Kerala",
-      deliveryTime: "72 hours",
-      quality: "Organic Certified",
-      millingType: "Unpolished",
-      moisture: "13%",
-      age: "2024 Season",
-      tags: ["Organic", "Health Special"],
-      category: "Organic Rice",
-      soldThisMonth: 5600
-    },
-    {
-      id: 5,
-      name: "Premium Basmati Rice",
-      millName: "Ceylon Rice Mills",
-      pricePerKg: 195,
-      minOrder: 20,
-      stock: 1200,
-      rating: 4.8,
-      reviews: 67,
-      image: "https://images.unsplash.com/photo-1563245372-f21724e3856d?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300&q=80",
-      location: "Sri Lanka",
-      deliveryTime: "5-7 days",
-      quality: "Premium Grade",
-      millingType: "Aged",
-      moisture: "10%",
-      age: "Aged 1 Year",
-      tags: ["Premium", "Aromatic"],
-      category: "Basmati Rice",
-      soldThisMonth: 3200
-    }
-  ];
-
-  // Promotional banners
+  // Promotional banners - dynamic based on dealer stats
   const promoBanners = [
     {
-      title: "Special Mill Rates",
-      subtitle: "Direct prices from partnered mills",
-      cta: "View Mills",
+      title: dealerStats ? `Credit Available: LKR ${dealerStats.availableCredit.toLocaleString()}` : "Credit Facility Available",
+      subtitle: dealerStats ? `Limit: LKR ${dealerStats.creditLimit.toLocaleString()} | Used: LKR ${dealerStats.usedCredit.toLocaleString()}` : "Get credit up to LKR 500,000",
+      cta: "Apply Now",
       color: "from-green-500 to-emerald-600",
-      badge: "Direct Prices",
-      discount: "Mill Rates"
+      badge: "Credit Line",
+      discount: dealerStats ? `${Math.round((dealerStats.availableCredit / dealerStats.creditLimit) * 100)}% Available` : "Flexible Credit"
     },
     {
       title: "Bulk Order Benefits",
@@ -410,7 +194,7 @@ const HomePage = () => {
       setCurrentTrustMessage((prev) => (prev + 1) % trustMessages.length);
     }, 3000);
     return () => clearInterval(interval);
-  }, []);
+  }, [riceMillsCount]);
 
   // Hero slider auto-slide
   useEffect(() => {
@@ -449,7 +233,7 @@ const HomePage = () => {
         </div>
       </div>
 
-            {/* 2. MODERN HERO BANNER – Perfect on Mobile & Desktop */}
+      {/* 2. MODERN HERO BANNER */}
       <div className="relative overflow-hidden h-[520px] sm:h-[600px] md:h-[680px] lg:h-[720px] xl:h-[780px]">
         {heroSlides.map((slide, index) => (
           <div
@@ -494,30 +278,34 @@ const HomePage = () => {
                   </p>
                 </div>
 
-                {/* Buttons – Stacked on Mobile, Side-by-side on Desktop */}
+                {/* Buttons */}
                 <div className="mt-10 sm:mt-12 flex flex-col sm:flex-row gap-4 sm:gap-6 justify-center sm:justify-start">
-                  <Button
-                    size="lg"
-                    className="bg-green-600 hover:bg-green-500 text-white font-bold text-lg sm:text-xl px-8 sm:px-10 py-4 sm:py-5 rounded-2xl shadow-xl transition transform hover:scale-105"
-                  >
-                    {slide.buttonText}
-                    <ChevronRightIcon className="ml-3 h-6 w-6" />
-                  </Button>
+                  <Link to="/products">
+                    <Button
+                      size="lg"
+                      className="bg-green-600 hover:bg-green-500 text-white font-bold text-lg sm:text-xl px-8 sm:px-10 py-4 sm:py-5 rounded-2xl shadow-xl transition transform hover:scale-105"
+                    >
+                      {slide.buttonText}
+                      <ChevronRightIcon className="ml-3 h-6 w-6" />
+                    </Button>
+                  </Link>
 
-                  <Button
-                    size="lg"
-                    variant="outline"
-                    className="border-2 border-white text-white hover:bg-white hover:text-green-700 font-bold text-lg sm:text-xl px-8 sm:px-10 py-4 sm:py-5 rounded-2xl backdrop-blur-sm transition"
-                  >
-                    View All Products
-                  </Button>
+                  <Link to="/products">
+                    <Button
+                      size="lg"
+                      variant="outline"
+                      className="border-2 border-white text-white hover:bg-white hover:text-green-700 font-bold text-lg sm:text-xl px-8 sm:px-10 py-4 sm:py-5 rounded-2xl backdrop-blur-sm transition"
+                    >
+                      View All Products
+                    </Button>
+                  </Link>
                 </div>
               </div>
             </div>
           </div>
         ))}
 
-        {/* Dots Indicator – Centered & Responsive */}
+        {/* Dots Indicator */}
         <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex gap-3 z-20">
           {heroSlides.map((_, index) => (
             <button
@@ -533,7 +321,7 @@ const HomePage = () => {
           ))}
         </div>
 
-        {/* Prev/Next Arrows – Hidden on Mobile, Visible on Tablet+ */}
+        {/* Prev/Next Arrows */}
         <button
           onClick={prevSlide}
           className="absolute left-4 sm:left-8 top-1/2 -translate-y-1/2 bg-white/20 backdrop-blur-md p-3 sm:p-4 rounded-full hover:bg-white/30 transition z-20"
@@ -551,268 +339,246 @@ const HomePage = () => {
         </button>
       </div>
 
-      
-
-     {/* 4. Rice Categories – Now Beautiful & Identical to Top Selling (Premium Overlay Style) */}
-<section className="py-16 sm:py-20 lg:py-24 bg-gradient-to-b from-gray-50 to-white">
-  <div className="max-w-7xl mx-auto px-6 sm:px-8 lg:px-12">
-    
-    {/* Clean, bold title */}
-    <div className="text-center mb-16">
-      <h2 className="text-4xl sm:text-5xl lg:text-6xl font-black text-gray-900 tracking-tight">
-        Browse Rice Categories
-      </h2>
-      <p className="mt-4 text-xl text-gray-600 font-medium">
-        Premium quality rice sourced directly from trusted Sri Lankan mills
-      </p>
-    </div>
-
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-10 px-4 lg:px-0">
-  {riceCategories.map((category, index) => (
-    <Link
-      key={index}
-      to={`/category/${category.name.toLowerCase().replace(/\s+/g, '-')}`}
-      className="group relative block rounded-3xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-500 hover:-translate-y-3 bg-white"
-    >
-      <div className="relative h-full flex flex-col justify-end">
-        
-        {/* Image */}
-        <div className="aspect-[4/3] relative overflow-hidden bg-gray-50">
-          <img
-            src={category.image}
-            alt={category.name}
-            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-            loading="lazy"
-          />
-
-          {/* Strong dark overlay – perfect for white images */}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
-        </div>
-
-        {/* Text content – always visible & perfectly readable */}
-        <div className="absolute inset-x-0 bottom-0 p-5 lg:p-7 text-white">
-          <h3 className="text-2xl lg:text-3xl font-extrabold tracking-tight drop-shadow-2xl mb-2">
-            {category.name}
-          </h3>
-
-          <p className="text-sm lg:text-base font-medium opacity-95 mb-4">
-            {category.products} products available
-          </p>
-
-          {/* Solid green-600 badge – no gradient */}
-          <div className="inline-flex items-center bg-green-600 text-white font-bold px-6 py-3 rounded-full text-sm lg:text-base shadow-lg ring-4 ring-green-600/30">
-            {category.priceRange}
-          </div>
-        </div>
-
-        {/* Soft hover glow (no gradient here either) */}
-        <div className="absolute -inset-1 rounded-3xl bg-green-600 opacity-0 group-hover:opacity-20 transition-opacity duration-500 blur-xl -z-10" />
-      </div>
-    </Link>
-  ))}
-</div>
-  </div>
-</section>
-
-      {/* Minimal Product Cards - Top Selling Products */}
-<section className="py-8 sm:py-10 bg-gray-50">
-  <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-    <div className="flex justify-between items-center mb-8">
-      <h2 className="text-2xl sm:text-3xl font-bold text-gray-800">
-        Top Selling Products
-      </h2>
-      <Link to="/products" className="text-green-600 hover:text-green-700 font-medium flex items-center text-sm sm:text-base">
-        View All <ChevronRightIcon className="ml-1 h-5 w-5" />
-      </Link>
-    </div>
-
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-      {topSellingProducts.map((product) => (
-        <div
-          key={product.id}
-          className="bg-white rounded-xl shadow-sm hover:shadow-lg transition-shadow duration-300 overflow-hidden border border-gray-100"
-        >
-          {/* Simple Image */}
-          <div className="h-48 bg-gray-100">
-            <img
-              src={product.image}
-              alt={product.name}
-              className="w-full h-full object-cover"
-            />
-          </div>
-
-          {/* Card Content */}
-          <div className="p-5 space-y-4">
-            {/* Product Name */}
-            <h3 className="font-semibold text-lg text-gray-800 line-clamp-2">
-              {product.name}
-            </h3>
-
-            {/* Mill Owner */}
-            <div className="flex items-center text-sm text-gray-600">
-              <Building2Icon className="h-4 w-4 mr-2 text-green-600" />
-              <span className="font-medium">{product.millName}</span>
-            </div>
-
-            {/* Price & Min Order */}
-            <div className="space-y-1">
-              <div className="flex items-baseline gap-2">
-                <span className="text-2xl font-bold text-green-700">
-                  LKR {product.pricePerKg}
-                </span>
-                <span className="text-sm text-gray-500">/ KG</span>
-              </div>
-              <p className="text-xs text-gray-500">
-                Min. order: <span className="font-semibold text-gray-700">{product.minOrder} KG</span>
-              </p>
-            </div>
-
-            {/* Add to Cart Button */}
-            <Button
-              className="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-3 rounded-lg transition"
-              onClick={() => {
-                console.log(`Added ${product.name} from ${product.millName} to cart`);
-                // Add your add-to-cart logic here
-              }}
-            >
-              <ShoppingCartIcon className="h-5 w-5 mr-2" />
-              Add to Cart
-            </Button>
-          </div>
-        </div>
-      ))}
-    </div>
-  </div>
-</section>
-
-            {/* 6. PREMIUM Category Showcase with "ALL" Tab – FINAL VERSION */}
-      {(() => {
-        const allCategories = ["All Products", ...Object.keys(categoryProducts)];
-        const [selectedCategory, setSelectedCategory] = useState("All Products");
-
-        // Get products based on selection
-        const getProducts = () => {
-          if (selectedCategory === "All Products") {
-            return Object.values(categoryProducts).flat();
-          }
-          return categoryProducts[selectedCategory] || [];
-        };
-
-        const products = getProducts();
-
-        return (
-          <section className="py-16 lg:py-28 bg-white">
-            <div className="max-w-7xl mx-auto px-6 lg:px-8">
-
-              {/* Elegant Category Tabs with "All" First */}
-              <div className="flex flex-wrap justify-center gap-4 mb-16 lg:mb-24">
-                {allCategories.map((cat) => (
-                  <button
-                    key={cat}
-                    onClick={() => setSelectedCategory(cat)}
-                    className={`px-8 py-4 rounded-full text-lg font-medium transition-all duration-300 shadow-sm ${
-                      selectedCategory === cat
-                        ? "bg-black text-white shadow-lg scale-105"
-                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                    }`}
-                  >
-                    {cat}
-                  </button>
-                ))}
-              </div>
-
-              {/* Dynamic Title */}
-              <div className="text-center mb-16">
-                <h2 className="text-4xl sm:text-5xl lg:text-6xl font-light tracking-tight text-gray-900">
-                  {selectedCategory === "All Products" ? "All Rice Products" : selectedCategory}
-                </h2>
-                <p className="mt-4 text-lg text-gray-500 font-light">
-                  {selectedCategory === "All Products"
-                    ? "Premium rice varieties from trusted Sri Lankan mills"
-                    : `Best ${selectedCategory.toLowerCase()} available now`}
+      {/* 3. Services Section */}
+      <section className="py-10 sm:py-16 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6">
+            {services.map((service, index) => (
+              <div key={index} className={`p-4 sm:p-6 rounded-xl border ${service.color} text-center`}>
+                <div className="inline-flex items-center justify-center w-12 h-12 sm:w-14 sm:h-14 bg-green-100 rounded-full mb-4">
+                  <div className="text-green-600">
+                    {service.icon}
+                  </div>
+                </div>
+                <h3 className="text-base sm:text-lg font-bold text-gray-800 mb-2">
+                  {service.title}
+                </h3>
+                <p className="text-sm text-gray-600">
+                  {service.description}
                 </p>
               </div>
+            ))}
+          </div>
+        </div>
+      </section>
 
-              {/* Full Luxury Grid – Always Feels Rich */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-8 lg:gap-12">
-                {products.length > 0 ? (
-                  products.map((product) => (
-                    <Link
-                      to={`/product/${product.id}`}
-                      key={product.id}
-                      className="group block"
-                    >
-                      <div className="aspect-square overflow-hidden rounded-3xl bg-gray-50 mb-6 shadow-lg">
-                        <img
-                          src={product.image}
-                          alt={product.name}
-                          className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110"
-                          loading="lazy"
-                        />
-                      </div>
+      {/* 4. Rice Categories Section - NOW WITH REAL FIREBASE DATA */}
+      <section className="py-16 sm:py-20 lg:py-24 bg-gradient-to-b from-gray-50 to-white">
+        <div className="max-w-7xl mx-auto px-6 sm:px-8 lg:px-12">
+          
+          {/* Clean, bold title */}
+          <div className="text-center mb-16">
+            <h2 className="text-4xl sm:text-5xl lg:text-6xl font-black text-gray-900 tracking-tight">
+              Browse Rice Categories
+            </h2>
+            <p className="mt-4 text-xl text-gray-600 font-medium">
+              Premium quality rice sourced directly from trusted Sri Lankan mills
+            </p>
+          </div>
 
-                      <div className="text-center space-y-3">
-                        <h3 className="text-base lg:text-lg font-medium text-gray-900 line-clamp-2 leading-tight">
-                          {product.name}
-                        </h3>
-                        <p className="text-sm text-gray-500 font-light">{product.millName}</p>
-
-                        <div className="pt-2">
-                          <p className="text-2xl font-semibold text-gray-900">
-                            LKR {product.pricePerKg}
-                            <span className="text-sm font-normal text-gray-400 ml-1">/ KG</span>
-                          </p>
-                          <p className="text-xs text-gray-400 mt-1">
-                            Min. {product.minOrder} KG
-                          </p>
-                        </div>
-
-                        {/* Hover Add to Cart */}
-                        <div className="opacity-0 group-hover:opacity-100 translate-y-4 group-hover:translate-y-0 transition-all duration-500 mt-6">
-                          <Button className="w-full bg-black hover:bg-gray-800 text-white font-medium py-3.5 rounded-2xl shadow-md">
-                            <ShoppingCartIcon className="h-5 w-5 mr-2" />
-                            Add to Cart
-                          </Button>
-                        </div>
-
-                        {/* Mobile Button */}
-                        <div className="lg:hidden mt-5">
-                          <Button className="w-full bg-black text-white font-medium py-3.5 rounded-2xl">
-                            <ShoppingCartIcon className="h-5 w-5 mr-2" />
-                            Add to Cart
-                          </Button>
-                        </div>
-                      </div>
-                    </Link>
-                  ))
-                ) : (
-                  <p className="col-span-full text-center text-gray-500 py-20">
-                    No products available in this category yet.
-                  </p>
-                )}
-              </div>
-
-              {/* View All Link */}
-              <div className="text-center mt-16 lg:mt-20">
-                <Link
-                  to={
-                    selectedCategory === "All Products"
-                      ? "/products"
-                      : `/category/${selectedCategory.toLowerCase().replace(/\s+/g, '-')}`
-                  }
-                  className="inline-flex items-center text-gray-600 hover:text-gray-900 font-medium text-lg transition"
-                >
-                  View All {selectedCategory === "All Products" ? "Products" : selectedCategory}
-                  <ChevronRightIcon className="ml-2 h-6 w-6" />
-                </Link>
-              </div>
-
+          {/* 🔥 DISPLAY CATEGORIES FROM FIREBASE */}
+          {loading.categories ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-10 px-4 lg:px-0">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="animate-pulse">
+                  <div className="aspect-[4/3] rounded-3xl bg-gray-200 mb-6"></div>
+                  <div className="h-6 bg-gray-200 rounded mb-2"></div>
+                  <div className="h-4 bg-gray-200 rounded"></div>
+                </div>
+              ))}
             </div>
-          </section>
-        );
-      })()}
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-10 px-4 lg:px-0">
+              {displayCategories.map((category, index) => (
+                <Link
+                  key={index}
+                  to={`/category/${category.name.toLowerCase().replace(/\s+/g, '-')}`}
+                  className="group relative block rounded-3xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-500 hover:-translate-y-3 bg-white"
+                >
+                  <div className="relative h-full flex flex-col justify-end">
+                    
+                    {/* Image */}
+                    <div className="aspect-[4/3] relative overflow-hidden bg-gray-50">
+                      <img
+                        src={category.image}
+                        alt={category.name}
+                        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                        loading="lazy"
+                      />
 
-      {/* 7. Promotional Banners */}
+                      {/* Strong dark overlay */}
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
+                    </div>
+
+                    {/* Text content */}
+                    <div className="absolute inset-x-0 bottom-0 p-5 lg:p-7 text-white">
+                      <h3 className="text-2xl lg:text-3xl font-extrabold tracking-tight drop-shadow-2xl mb-2">
+                        {category.name}
+                      </h3>
+
+                      <p className="text-sm lg:text-base font-medium opacity-95 mb-4">
+                        {category.products} products available
+                      </p>
+
+                      {/* Price badge */}
+                      <div className="inline-flex items-center bg-green-600 text-white font-bold px-6 py-3 rounded-full text-sm lg:text-base shadow-lg ring-4 ring-green-600/30">
+                        {category.priceRange}
+                      </div>
+                    </div>
+
+                    {/* Soft hover glow */}
+                    <div className="absolute -inset-1 rounded-3xl bg-green-600 opacity-0 group-hover:opacity-20 transition-opacity duration-500 blur-xl -z-10" />
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
+          
+          {/* No categories message */}
+          {!loading.categories && displayCategories.length === 1 && displayCategories[0].name === "Loading..." && (
+            <div className="text-center py-12">
+              <p className="text-gray-500 mb-4">No categories found. Products need to be added to Firebase.</p>
+              <Link to="/products">
+                <Button className="bg-green-600 text-white">
+                  Browse All Products
+                </Button>
+              </Link>
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* 5. Top Selling Products Section - NOW WITH REAL FIREBASE DATA */}
+      <section className="py-8 sm:py-10 bg-gray-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center mb-8">
+            <h2 className="text-2xl sm:text-3xl font-bold text-gray-800">
+              Top Selling Products
+            </h2>
+            <Link to="/products" className="text-green-600 hover:text-green-700 font-medium flex items-center text-sm sm:text-base">
+              View All <ChevronRightIcon className="ml-1 h-5 w-5" />
+            </Link>
+          </div>
+
+          {/* 🔥 DISPLAY PRODUCTS FROM FIREBASE */}
+          {loading.products ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="animate-pulse bg-white rounded-xl shadow-sm overflow-hidden">
+                  <div className="h-48 bg-gray-200"></div>
+                  <div className="p-5 space-y-4">
+                    <div className="h-6 bg-gray-200 rounded"></div>
+                    <div className="h-4 bg-gray-200 rounded"></div>
+                    <div className="h-8 bg-gray-200 rounded"></div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+              {topSellingProducts.map((product) => (
+                <div
+                  key={product.id}
+                  className="bg-white rounded-xl shadow-sm hover:shadow-lg transition-shadow duration-300 overflow-hidden border border-gray-100"
+                >
+                  {/* Product Image */}
+                  <div className="h-48 bg-gray-100 relative">
+                    <img
+                      src={product.image}
+                      alt={product.name}
+                      className="w-full h-full object-cover"
+                    />
+                    {product.stock < 100 && (
+                      <div className="absolute top-2 right-2 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded">
+                        Low Stock
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Product Details */}
+                  <div className="p-5 space-y-4">
+                    {/* Product Name */}
+                    <h3 className="font-semibold text-lg text-gray-800 line-clamp-2">
+                      {product.name}
+                    </h3>
+
+                    {/* Mill Name */}
+                    <div className="flex items-center text-sm text-gray-600">
+                      <Building2Icon className="h-4 w-4 mr-2 text-green-600" />
+                      <span className="font-medium truncate">{product.millName}</span>
+                    </div>
+
+                    {/* Rating */}
+                    <div className="flex items-center">
+                      <div className="flex text-yellow-400">
+                        {[...Array(5)].map((_, i) => (
+                          <StarIcon
+                            key={i}
+                            className={`h-4 w-4 ${i < Math.floor(product.rating) ? 'fill-current' : ''}`}
+                          />
+                        ))}
+                      </div>
+                      <span className="ml-2 text-sm text-gray-600">
+                        {product.rating} ({product.reviews || 0})
+                      </span>
+                    </div>
+
+                    {/* Price & Stock */}
+                    <div className="space-y-1">
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-2xl font-bold text-green-700">
+                          LKR {product.pricePerKg}
+                        </span>
+                        <span className="text-sm text-gray-500">/ KG</span>
+                      </div>
+                      <p className="text-xs text-gray-500">
+                        Min. order: <span className="font-semibold text-gray-700">{product.minOrder} KG</span>
+                        {product.stock > 0 && (
+                          <span className="ml-2">
+                            • Stock: <span className="font-semibold text-gray-700">{product.stock} KG</span>
+                          </span>
+                        )}
+                      </p>
+                    </div>
+
+                    {/* Add to Cart Button */}
+                    <Button
+                      className="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-3 rounded-lg transition"
+                      onClick={() => {
+                        // Add to cart logic here
+                        console.log(`Added ${product.name} to cart`);
+                      }}
+                    >
+                      <ShoppingCartIcon className="h-5 w-5 mr-2" />
+                      Add to Cart
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* No products message */}
+          {!loading.products && topSellingProducts.length === 0 && (
+            <div className="text-center py-12">
+              <PackageIcon className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-gray-700 mb-2">No Products Available</h3>
+              <p className="text-gray-500 mb-4">Products need to be added to Firebase database.</p>
+              {user?.role === 'owner' || user?.role === 'mill_owner' ? (
+                <Link to="/owner/dashboard">
+                  <Button className="bg-green-600 text-white">
+                    Go to Owner Dashboard to Add Products
+                  </Button>
+                </Link>
+              ) : (
+                <p className="text-sm text-gray-400">Contact system administrator to add products.</p>
+              )}
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* 6. Promotional Banners with Real Dealer Stats */}
       <section className="py-8 sm:py-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
@@ -836,13 +602,15 @@ const HomePage = () => {
                     <div className="text-lg sm:text-xl font-bold">
                       {banner.discount}
                     </div>
-                    <Button 
-                      size="sm" 
-                      className="bg-black text-green-700 hover:bg-green-50"
-                    >
-                      {banner.cta}
-                      <ChevronRightIcon className="ml-2 h-4 w-4" />
-                    </Button>
+                    <Link to={index === 0 ? "/credit" : "/bulk-orders"}>
+                      <Button 
+                        size="sm" 
+                        className="bg-black text-green-700 hover:bg-green-50"
+                      >
+                        {banner.cta}
+                        <ChevronRightIcon className="ml-2 h-4 w-4" />
+                      </Button>
+                    </Link>
                   </div>
                 </div>
               </div>
@@ -851,7 +619,7 @@ const HomePage = () => {
         </div>
       </section>
 
-      {/* 8. Statistics */}
+      {/* 7. Statistics Section - Dynamic from Firebase */}
       <section className="py-8 sm:py-10 md:py-12 bg-gradient-to-r from-green-800 to-green-900 text-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 sm:gap-6 md:gap-8 text-center">
@@ -860,7 +628,7 @@ const HomePage = () => {
               <div className="text-green-200 text-sm">Active Dealers</div>
             </div>
             <div className="p-4">
-              <div className="text-2xl sm:text-3xl md:text-4xl font-bold mb-2">50+</div>
+              <div className="text-2xl sm:text-3xl md:text-4xl font-bold mb-2">{riceMillsCount}+</div>
               <div className="text-green-200 text-sm">Partner Mills</div>
             </div>
             <div className="p-4">
@@ -875,11 +643,9 @@ const HomePage = () => {
         </div>
       </section>
 
-      {/* 9. CTA */}
-            {/* FINAL LUXURY CTA – Ready to Grow Your Rice Business? */}
+      {/* 8. CTA Section */}
       <section className="py-20 lg:py-28 bg-gradient-to-b from-gray-50 to-white">
         <div className="max-w-7xl mx-auto px-6 lg:px-8 text-center">
-
           {/* Icon */}
           <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-green-600 to-emerald-600 rounded-3xl shadow-2xl mb-8">
             <PackageIcon className="w-10 h-10 text-white" />
@@ -898,22 +664,6 @@ const HomePage = () => {
             Join <span className="font-bold text-green-700">500+ successful rice dealers</span> across Sri Lanka who trust us for 
             premium quality rice, direct mill prices, instant credit, and lightning-fast delivery.
           </p>
-
-          {/* Stats */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-8 mt-12 max-w-4xl mx-auto">
-            <div>
-              <div className="text-4xl lg:text-5xl font-black text-green-600">50+</div>
-              <p className="text-gray-600 mt-2">Partner Mills</p>
-            </div>
-            <div>
-              <div className="text-4xl lg:text-5xl font-black text-green-600">10,000+</div>
-              <p className="text-gray-600 mt-2">Monthly Orders</p>
-            </div>
-            <div>
-              <div className="text-4xl lg:text-5xl font-black text-green-600">98%</div>
-              <p className="text-gray-600 mt-2">Dealer Satisfaction</p>
-            </div>
-          </div>
 
           {/* Buttons */}
           <div className="mt-12 flex flex-col sm:flex-row gap-6 justify-center">
@@ -943,7 +693,6 @@ const HomePage = () => {
             <ShieldCheckIcon className="w-5 h-5 text-green-600" />
             Secure • Verified Mills • 100% Quality Guarantee
           </p>
-
         </div>
       </section>
     </div>

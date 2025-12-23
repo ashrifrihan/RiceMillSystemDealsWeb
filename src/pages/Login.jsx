@@ -1,3 +1,4 @@
+// C:\Users\RIHAN\Desktop\dealers - web\src\pages\Login.jsx
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
@@ -33,12 +34,33 @@ const Login = () => {
     setIsLoading(true);
     try {
       const result = await login(cleanedEmail, cleanedPassword);
+      
       if (result.success) {
         addNotification("success", `Welcome back, ${result.user.name || "User"}!`);
-        navigate("/");
+        
+        // Get user role
+        const userRole = result.user.role;
+        
+        // 🔥 ROLE-BASED REDIRECTION
+        if (userRole === "owner" || userRole === "mill_owner") {
+          // ⭐️ OWNER → GO TO OWNER APP (Port 5174)
+          window.location.href = "http://localhost:5174/dashboard";
+          return;
+        }
+        
+        if (userRole === "dealer") {
+          // ⭐️ DEALER → STAY IN DEALER APP
+          navigate("/");
+          return;
+        }
+        
+        // If other roles (driver, admin, etc.)
+        setError("Unauthorized role. Please contact administrator.");
+        addNotification("error", "Your account role is not authorized.");
+        
       } else {
-        setError("Invalid email or password");
-        addNotification("error", "Login failed. Please check your credentials.");
+        setError(result.message || "Invalid email or password");
+        addNotification("error", result.message || "Login failed.");
       }
     } catch (err) {
       setError("Something went wrong. Please try again.");
@@ -48,15 +70,24 @@ const Login = () => {
     }
   };
 
+  // Demo login function (for testing without Firebase)
+  const handleDemoLogin = (role) => {
+    if (role === "owner") {
+      setEmail("owner@ricemill.com");
+      setPassword("owner123");
+    } else {
+      setEmail("dealer@example.com");
+      setPassword("dealer123");
+    }
+  };
+
   return (
     <div className="min-h-screen flex flex-col lg:flex-row overflow-hidden">
-      {/* Left Hero – Desktop Only (Luxurious & Subtle Animation) */}
+      {/* Left Hero – Desktop Only */}
       <div className="hidden lg:flex lg:w-1/2 xl:w-3/5 relative bg-gradient-to-br from-green-700 via-green-600 to-emerald-800">
-        {/* Floating Orbs – Soft & Premium */}
         <div className="absolute inset-0 overflow-hidden">
           <div className="absolute top-0 -left-32 w-96 h-96 bg-green-500/30 rounded-full blur-3xl animate-float"></div>
           <div className="absolute bottom-0 -right-32 w-96 h-96 bg-emerald-400/30 rounded-full blur-3xl animate-float-delayed"></div>
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-80 bg-green-600/20 rounded-full blur-3xl animate-float-slow"></div>
         </div>
 
         <div className="relative z-10 flex flex-col justify-center items-start p-16 text-white">
@@ -72,13 +103,9 @@ const Login = () => {
             Manage your rice business with precision and ease.
           </p>
         </div>
-
-        <div className="absolute bottom-8 left-16 text-green-200 text-sm">
-          © 2025 Rice Mill Management. All rights reserved.
-        </div>
       </div>
 
-      {/* Right Side – Clean & Fast Login Form */}
+      {/* Right Side – Login Form */}
       <div className="flex-1 flex items-center justify-center p-6 lg:p-12 bg-gray-50">
         <div className="w-full max-w-md">
           {/* Mobile Header */}
@@ -105,8 +132,9 @@ const Login = () => {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full px-5 py-4 rounded-2xl border border-gray-300 focus:border-green-600 focus:ring-4 focus:ring-green-600/20 transition-all duration-300 placeholder-gray-400"
-                  placeholder="owner@ricemill.com"
+                  placeholder="email@example.com"
                   autoComplete="email"
+                  required
                 />
               </div>
 
@@ -120,6 +148,7 @@ const Login = () => {
                     className="w-full px-5 py-4 pr-12 rounded-2xl border border-gray-300 focus:border-green-600 focus:ring-4 focus:ring-green-600/20 transition-all duration-300 placeholder-gray-400"
                     placeholder="••••••••"
                     autoComplete="current-password"
+                    required
                   />
                   <button
                     type="button"
@@ -136,9 +165,13 @@ const Login = () => {
                   <input type="checkbox" className="w-4 h-4 text-green-600 rounded focus:ring-green-500" />
                   <span className="text-gray-600">Remember me</span>
                 </label>
-                <a href="/forgot-password" className="text-green-600 font-medium hover:text-green-700 transition">
+                <button
+                  type="button"
+                  onClick={() => navigate("/forgot-password")}
+                  className="text-green-600 font-medium hover:text-green-700 transition"
+                >
                   Forgot password?
-                </a>
+                </button>
               </div>
 
               <button
@@ -150,32 +183,49 @@ const Login = () => {
               </button>
             </form>
 
-           
-<div className="mt-8 text-center">
-  <p className="text-gray-600">
-    Don't have an account?{" "}
-    <a 
-      href="/register" 
-      className="text-green-600 hover:text-green-700 font-medium transition"
-    >
-      Register here
-    </a>
-  </p>
-</div>
+            <div className="mt-8 text-center">
+              <p className="text-gray-600">
+                Don't have an account?{" "}
+                <button
+                  onClick={() => navigate("/register")}
+                  className="text-green-600 hover:text-green-700 font-medium transition"
+                >
+                  Register here
+                </button>
+              </p>
+            </div>
 
-
-            {/* Demo Account */}
+            {/* Demo Accounts Section */}
             <div className="mt-8 p-6 bg-green-50 rounded-2xl border-2 border-dashed border-green-300">
-              <p className="text-center font-bold text-green-800 text-sm">Demo Account</p>
-              <p className="text-center text-xs text-green-700 mt-1">owner@ricemill.com</p>
-              <p className="text-center text-xs text-green-700">owner123</p>
+              <p className="text-center font-bold text-green-800 text-sm mb-3">Quick Test Accounts</p>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-semibold text-green-700">Mill Owner</p>
+                    <p className="text-xs text-green-600">Full access to all features</p>
+                  </div>
+                  <button
+                    onClick={() => handleDemoLogin("owner")}
+                    className="px-3 py-1 text-xs bg-green-600 text-white rounded-lg hover:bg-green-700"
+                  >
+                    Fill & Login
+                  </button>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-semibold text-green-700">Rice Dealer</p>
+                    <p className="text-xs text-green-600">Place orders, track deliveries</p>
+                  </div>
+                  <button
+                    onClick={() => handleDemoLogin("dealer")}
+                    className="px-3 py-1 text-xs bg-green-600 text-white rounded-lg hover:bg-green-700"
+                  >
+                    Fill & Login
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
-
-          {/* Mobile Footer */}
-          <p className="text-center text-gray-500 text-xs mt-8 lg:hidden">
-            © 2025 Rice Mill Management
-          </p>
         </div>
       </div>
     </div>
